@@ -1,0 +1,50 @@
+name: Publish Christie Lites diagrams
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Christie Lites/Architecture/proposal-v5/**'
+      - '.github/workflows/christie-diagrams.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/configure-pages@v5
+      - name: Prepare only the public diagram files
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, shutil
+          source = Path('Christie Lites/Architecture/proposal-v5')
+          target = Path('_site/Christie-Lites/proposal-v5')
+          target.mkdir(parents=True)
+          files = ['index.html', '01-system-architecture.html', '02-nightly-planning.html', '03-approval-and-commit.html', '04-savings-lineage.html', '05-timing-eligibility.html', '06-command-recovery.html']
+          for name in files:
+              shutil.copy2(source / name, target / name)
+          index = (target / 'index.html').read_text()
+          index = re.sub(r'href="(0[1-6]-[^"]+\.html)"', r'href="Christie-Lites/proposal-v5/\1"', index)
+          Path('_site/index.html').write_text(index)
+          assert len(list(Path('_site').rglob('*html'))) == 8
+          PY
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - uses: actions/deploy-pages@v4
+        id: deployment
